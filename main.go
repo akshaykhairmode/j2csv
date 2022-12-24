@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"j2csv/logger"
-	"j2csv/parser"
+	"github.com/akshaykhairmode/j2csv/logger"
+	"github.com/akshaykhairmode/j2csv/parser"
 
 	"github.com/rs/zerolog"
 )
