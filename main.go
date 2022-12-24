@@ -1,44 +1,71 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
-	"log"
+	"io"
+	"os"
+	"time"
+
+	"j2csv/logger"
+	"j2csv/parser"
+
+	"github.com/rs/zerolog"
 )
 
 type flags struct {
-	fd  fileDetails
-	uts string //unix to string
+	inFile  string //the file to read for the json input
+	outFile string //the output file path
+	uts     string //unix to string
+	verbose bool   //enables debug logs
+	help    bool   //prints command help
 }
 
 func main() {
 
-	fg := flags{}
+	startTime := time.Now()
+	fg := parseFlags()
+	logWriter := logger.GetLogger(fg.verbose)
+	fg.printAll(logWriter)
 
-	flag.StringVar(&fg.fd.fpath, "f", "", "--f /home/input.txt (Required)")
-	flag.StringVar(&fg.fd.outFile, "o", "", "--f /home/output.txt")
-	flag.StringVar(&fg.uts, "uts", "", "--uts createdAt,updatedAt")
+	input := parser.GetInputReader(fg.inFile, logWriter)
+	output, outFilePath := parser.GetOutWriter(fg.inFile, fg.outFile, logWriter)
+	defer closeFiles(logWriter, input, output)
+
+	logWriter = logger.SetFatalHook(logWriter, outFilePath)
+
+	parser.NewParser(input, output, logWriter).Process(fg.uts)
+
+	logWriter.Info().Msgf("Done!!, Time took : %v", time.Since(startTime))
+
+}
+
+func closeFiles(logger *zerolog.Logger, fhs ...io.Closer) {
+	for _, fh := range fhs {
+		if err := fh.Close(); err != nil {
+			logger.Debug().Msgf("error while closing file : %v", err)
+		}
+	}
+}
+
+func (f flags) printAll(logger *zerolog.Logger) {
+	flag.VisitAll(func(f *flag.Flag) {
+		logger.Debug().Msgf("Flag %s , Value : %s", f.Name, f.Value)
+	})
+}
+
+func parseFlags() flags {
+	fg := flags{}
+	flag.StringVar(&fg.inFile, "f", "", "--f /home/input.txt (Required)")
+	flag.StringVar(&fg.outFile, "o", "", "--f /home/output.txt")
+	flag.StringVar(&fg.uts, "uts", "", "used to convert timestamp to string, usage --uts createdAt,updatedAt")
+	flag.BoolVar(&fg.verbose, "v", false, "Enables verbose logging")
+	flag.BoolVar(&fg.help, "h", false, "Prints command help")
 	flag.Parse()
 
-	input := fg.fd.getInputReader()
-	output := fg.fd.getOutWriter()
-	decoder := json.NewDecoder(input)
-
-	csvp := Parser{
-		out:     output,
-		inp:     input,
-		decoder: decoder,
+	if fg.help {
+		flag.PrintDefaults()
+		os.Exit(0)
 	}
 
-	csvp.setHeadersAndWriteFirstRow().setUTS(fg.uts)
-
-	csvp.parseArray()
-
-	endToken, err := decoder.Token()
-	if err != nil {
-		log.Fatalf("error while decoding json : %v", err)
-	}
-
-	log.Printf("End Token : %v", endToken)
-
+	return fg
 }
