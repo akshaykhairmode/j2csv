@@ -1,4 +1,4 @@
-module j2csv
+module github.com/akshaykhairmode/j2csv
 
 go 1.19
 
