@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/csv"
 	"flag"
 	"fmt"
 	"io"
@@ -28,14 +29,14 @@ func GetInputReader(inFile string, logger *zerolog.Logger) io.ReadCloser {
 	return fh
 }
 
-func GetOutWriter(inFile, outFile string, logger *zerolog.Logger) (io.WriteCloser, string) {
+func GetOutWriter(inFile, outFile string, logger *zerolog.Logger) (*csv.Writer, string) {
 
 	if outFile == "" {
 		fileName := filepath.Base(inFile)
 		ext := filepath.Ext(fileName)
 		ts := time.Now().Unix()
 		fname := strings.TrimRight(fileName, ext)
-		outFile = fmt.Sprintf("%s-%d.%s", fname, ts, "csv")
+		outFile = fmt.Sprintf("j2csv-%s-%d.%s", fname, ts, "csv")
 	}
 
 	fh, err := os.OpenFile(outFile, os.O_CREATE|os.O_RDWR, 0644)
@@ -45,5 +46,5 @@ func GetOutWriter(inFile, outFile string, logger *zerolog.Logger) (io.WriteClose
 
 	logger.Info().Msgf("Output File Path >> %s", outFile)
 
-	return fh, outFile
+	return csv.NewWriter(fh), outFile
 }

@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/akshaykhairmode/j2csv/logger"
@@ -29,7 +31,7 @@ func main() {
 
 	input := parser.GetInputReader(fg.inFile, logWriter)
 	output, outFilePath := parser.GetOutWriter(fg.inFile, fg.outFile, logWriter)
-	defer closeFiles(logWriter, input, output)
+	defer closeFiles(logWriter, input)
 
 	logWriter = logger.SetFatalHook(logWriter, outFilePath)
 
@@ -68,4 +70,19 @@ func parseFlags() flags {
 	}
 
 	return fg
+}
+
+// https://gist.github.com/j33ty/79e8b736141be19687f565ea4c6f4226
+func PrintMemUsage() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
 }

@@ -1,11 +1,14 @@
 package parser
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -13,14 +16,16 @@ import (
 
 type parser struct {
 	headers    []string
-	out        io.WriteCloser
+	out        *csv.Writer
 	inp        io.ReadCloser
 	decoder    *json.Decoder
 	utsHeaders map[string]struct{}
 	logger     zerolog.Logger
+	objPool    *sync.Pool
+	strPool    *sync.Pool
 }
 
-func NewParser(inp io.ReadCloser, out io.WriteCloser, logger *zerolog.Logger) *parser {
+func NewParser(inp io.ReadCloser, out *csv.Writer, logger *zerolog.Logger) *parser {
 
 	decoder := json.NewDecoder(inp)
 
@@ -42,41 +47,67 @@ func (p *parser) Process(uts string) {
 	p.endToken()
 }
 
-func (p *parser) writeRow(row map[string]any) {
-	for index, header := range p.headers {
+func (p *parser) writeRow(row map[string]any, isFirstRow bool) {
+
+	csvRow := p.strPool.Get().([]string)
+
+	for _, header := range p.headers {
 		value := row[header]
-		objectPool.Put(row)
+
+		if isFirstRow || len(p.utsHeaders) <= 0 {
+			csvRow = append(csvRow, fmt.Sprintf("%v", value))
+			continue
+		}
 
 		switch v := value.(type) {
 		case float64:
 			if _, ok := p.utsHeaders[header]; ok {
 				t := time.Unix(int64(v), 0)
-				p.out.Write([]byte(t.String()))
-			} else {
-				p.out.Write([]byte(fmt.Sprintf("%d", int64(v))))
+				csvRow = append(csvRow, t.String())
+				continue
 			}
+			csvRow = append(csvRow, fmt.Sprintf("%d", int64(v)))
+		case string:
+			if _, ok := p.utsHeaders[header]; ok {
+				val, err := strconv.ParseInt(v, 10, 64)
+				if err != nil {
+					p.logger.Debug().Str("str", v).Msg("could not convert the string to int64")
+					csvRow = append(csvRow, v)
+					continue
+				}
+				t := time.Unix(val, 0)
+				csvRow = append(csvRow, t.String())
+			}
+
 		default:
-			p.out.Write([]byte(fmt.Sprintf("%s", v)))
+			csvRow = append(csvRow, fmt.Sprintf("%s", v))
 		}
-
-		if index < len(p.headers)-1 {
-			p.out.Write([]byte(","))
-		}
-
 	}
 
-	p.out.Write([]byte("\n"))
+	p.out.Write(csvRow)
+
+	//clear map and put it back in pool
+	for k := range row {
+		delete(row, k)
+	}
+	p.objPool.Put(row)
+
+	//empty slice and put it back
+	csvRow = csvRow[:0]
+	p.strPool.Put(csvRow)
 }
 
 func (p *parser) parseArrayElements() {
 	for p.decoder.More() {
-		object := objectPool.Get().(map[string]any)
+		object := p.objPool.Get().(map[string]any)
 		if err := p.decoder.Decode(&object); err != nil {
 			p.logger.Fatal().Msgf("error while praseArray decoding object : %v", err)
 		}
 
-		p.writeRow(object)
+		p.writeRow(object, false)
 	}
+
+	p.out.Flush()
 }
 
 func (p *parser) getHeaderAndFirstRowFromArray() ([]string, map[string]any) {
@@ -114,9 +145,10 @@ func (p *parser) setHeadersAndWriteFirstRow(uts string) {
 		for _, header := range headers {
 			headerMap[header] = header
 		}
-		p.writeRow(headerMap)
+		p.setPools()
 		p.setUTS(uts, headerMap)
-		p.writeRow(row)
+		p.writeRow(headerMap, true)
+		p.writeRow(row, false)
 	default:
 		p.logger.Fatal().Msgf("Invalid JSON, Only supports array of objects %s", `[{"key1":"value1","key2":"value2"}]`)
 	}
@@ -130,9 +162,30 @@ func (p *parser) endToken() {
 	p.logger.Debug().Msgf("End Token : %v", endToken)
 }
 
+func (p *parser) setPools() {
+
+	p.objPool = &sync.Pool{
+		New: func() any {
+			return make(map[string]any, len(p.headers))
+		},
+	}
+
+	p.strPool = &sync.Pool{
+		New: func() any {
+			return make([]string, 0, len(p.headers))
+		},
+	}
+
+}
+
 func (p *parser) setUTS(uts string, headerMap map[string]any) {
 
-	fields := strings.Split(uts, ",")
+	trimmed := strings.TrimSpace(uts)
+	if trimmed == "" {
+		return
+	}
+
+	fields := strings.Split(trimmed, ",")
 
 	if len(fields) <= 0 {
 		return
