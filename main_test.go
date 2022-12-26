@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"testing"
@@ -33,20 +35,20 @@ func TestGenerateFile(t *testing.T) {
 }
 
 func BenchmarkParse(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		inp, err := os.Open("500")
-		if err != nil {
-			panic(err)
-		}
 
-		out, err := os.OpenFile("500.out", os.O_CREATE|os.O_RDWR, 0644)
-		if err != nil {
-			panic(err)
-		}
-		p := parser.NewParser(bufio.NewReader(inp), csv.NewWriter(out), &zerolog.Logger{})
-		p.Process("")
-		inp.Close()
-		out.Close()
-		os.Remove("500.out")
+	inp, err := os.Open("500")
+	if err != nil {
+		panic(err)
+	}
+	dt, err := io.ReadAll(inp)
+	if err != nil {
+		panic(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		inp := bytes.NewBuffer(dt)
+		out := bytes.NewBuffer(nil)
+		parser.NewParser(bufio.NewReader(inp), csv.NewWriter(out), &zerolog.Logger{}).Process("")
 	}
 }
