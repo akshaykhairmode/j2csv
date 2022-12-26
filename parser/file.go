@@ -1,10 +1,10 @@
 package parser
 
 import (
+	"bufio"
 	"encoding/csv"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func GetInputReader(inFile string, logger *zerolog.Logger) io.ReadCloser {
+func GetInputReader(inFile string, logger *zerolog.Logger) *bufio.Reader {
 	if inFile == "" {
 		flag.PrintDefaults()
 		logger.Fatal().Msgf("Input file path cannot be empty")
@@ -26,7 +26,7 @@ func GetInputReader(inFile string, logger *zerolog.Logger) io.ReadCloser {
 
 	logger.Info().Msgf("Reading input from path : %s", inFile)
 
-	return fh
+	return bufio.NewReader(fh)
 }
 
 func GetOutWriter(inFile, outFile string, logger *zerolog.Logger) (*csv.Writer, string) {

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
 	"time"
@@ -31,7 +30,6 @@ func main() {
 
 	input := parser.GetInputReader(fg.inFile, logWriter)
 	output, outFilePath := parser.GetOutWriter(fg.inFile, fg.outFile, logWriter)
-	defer closeFiles(logWriter, input)
 
 	logWriter = logger.SetFatalHook(logWriter, outFilePath)
 
@@ -39,14 +37,6 @@ func main() {
 
 	logWriter.Info().Msgf("Done!!, Time took : %v", time.Since(startTime))
 
-}
-
-func closeFiles(logger *zerolog.Logger, fhs ...io.Closer) {
-	for _, fh := range fhs {
-		if err := fh.Close(); err != nil {
-			logger.Debug().Msgf("error while closing file : %v", err)
-		}
-	}
 }
 
 func (f flags) printAll(logger *zerolog.Logger) {

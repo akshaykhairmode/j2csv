@@ -1,15 +1,12 @@
 package parser
 
 import (
+	"bufio"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"io"
 	"sort"
-	"strconv"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/rs/zerolog"
 )
@@ -17,7 +14,7 @@ import (
 type parser struct {
 	headers    []string
 	out        *csv.Writer
-	inp        io.ReadCloser
+	inp        *bufio.Reader
 	decoder    *json.Decoder
 	utsHeaders map[string]struct{}
 	logger     zerolog.Logger
@@ -25,7 +22,7 @@ type parser struct {
 	strPool    *sync.Pool
 }
 
-func NewParser(inp io.ReadCloser, out *csv.Writer, logger *zerolog.Logger) *parser {
+func NewParser(inp *bufio.Reader, out *csv.Writer, logger *zerolog.Logger) *parser {
 
 	decoder := json.NewDecoder(inp)
 
@@ -52,36 +49,15 @@ func (p *parser) writeRow(row map[string]any, isFirstRow bool) {
 	csvRow := p.strPool.Get().([]string)
 
 	for _, header := range p.headers {
+
 		value := row[header]
 
-		if isFirstRow || len(p.utsHeaders) <= 0 {
+		if isFirstRow {
 			csvRow = append(csvRow, fmt.Sprintf("%v", value))
 			continue
 		}
 
-		switch v := value.(type) {
-		case float64:
-			if _, ok := p.utsHeaders[header]; ok {
-				t := time.Unix(int64(v), 0)
-				csvRow = append(csvRow, t.String())
-				continue
-			}
-			csvRow = append(csvRow, fmt.Sprintf("%d", int64(v)))
-		case string:
-			if _, ok := p.utsHeaders[header]; ok {
-				val, err := strconv.ParseInt(v, 10, 64)
-				if err != nil {
-					p.logger.Debug().Str("str", v).Msg("could not convert the string to int64")
-					csvRow = append(csvRow, v)
-					continue
-				}
-				t := time.Unix(val, 0)
-				csvRow = append(csvRow, t.String())
-			}
-
-		default:
-			csvRow = append(csvRow, fmt.Sprintf("%s", v))
-		}
+		csvRow = append(csvRow, p.parseRowValue(header, value))
 	}
 
 	p.out.Write(csvRow)
@@ -160,43 +136,6 @@ func (p *parser) endToken() {
 		p.logger.Fatal().Msgf("error while decoding json : %v", err)
 	}
 	p.logger.Debug().Msgf("End Token : %v", endToken)
-}
-
-func (p *parser) setPools() {
-
-	p.objPool = &sync.Pool{
-		New: func() any {
-			return make(map[string]any, len(p.headers))
-		},
-	}
-
-	p.strPool = &sync.Pool{
-		New: func() any {
-			return make([]string, 0, len(p.headers))
-		},
-	}
-
-}
-
-func (p *parser) setUTS(uts string, headerMap map[string]any) {
-
-	trimmed := strings.TrimSpace(uts)
-	if trimmed == "" {
-		return
-	}
-
-	fields := strings.Split(trimmed, ",")
-
-	if len(fields) <= 0 {
-		return
-	}
-
-	for _, field := range fields {
-		if _, ok := headerMap[field]; !ok {
-			p.logger.Fatal().Msgf("Passed header %v does not match with file headers : %v", field, p.headers)
-		}
-		p.utsHeaders[field] = struct{}{}
-	}
 }
 
 func (p *parser) getJSONInputFormat() json.Token {
