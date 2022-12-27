@@ -13,11 +13,13 @@ This will install go binary in your **$GOBIN** (If its set) or at **~/go/bin/j2c
 
 Example Usage,
 
-> $GOBIN/j2csv -f myfile.json
+> **$GOBIN/j2csv -f myfile.json** OR **j2csv.exe --f myfile.json**
 
 **Options,**
+ 
 
-	  -f string
+      -a    use this option if its an array of objects. Default type is stream of objects.
+      -f string
             --f /home/input.txt (Required)
       -h    Prints command help
       -o string
