@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"sync"
 
 	"github.com/rs/zerolog"
 )
@@ -14,17 +13,19 @@ import (
 type parser struct {
 	headers    []string
 	out        *csv.Writer
-	inp        *bufio.Reader
+	inp        *bufio.Scanner
 	decoder    *json.Decoder
 	utsHeaders map[string]struct{}
 	logger     zerolog.Logger
-	objPool    *sync.Pool
-	strPool    *sync.Pool
+	pool       *pool
 }
 
-func NewParser(inp *bufio.Reader, out *csv.Writer, logger *zerolog.Logger) *parser {
+func (p *parser) EnablePool() *parser {
+	p.pool.enabled = true
+	return p
+}
 
-	decoder := json.NewDecoder(inp)
+func NewParser(inp *bufio.Scanner, out *csv.Writer, decoder *json.Decoder, logger *zerolog.Logger) *parser {
 
 	return &parser{
 		out:        out,
@@ -32,21 +33,33 @@ func NewParser(inp *bufio.Reader, out *csv.Writer, logger *zerolog.Logger) *pars
 		decoder:    decoder,
 		utsHeaders: map[string]struct{}{},
 		logger:     *logger,
+		pool:       &pool{},
 	}
 }
 
-func (p *parser) Process(uts string) {
+func (p *parser) ProcessArray(uts string) {
 
-	p.setHeadersAndWriteFirstRow(uts)
+	p.startToken()
+
+	p.setHeadersAndWriteFirstRow(uts, true)
 
 	p.parseArrayElements()
 
 	p.endToken()
+
+}
+
+func (p *parser) ProcessObjects(uts string) {
+
+	p.setHeadersAndWriteFirstRow(uts, false)
+
+	p.parseDistinctElements()
+
 }
 
 func (p *parser) writeRow(row map[string]any, isFirstRow bool) {
 
-	csvRow := p.strPool.Get().([]string)
+	csvRow := p.pool.GetStringSlice()
 
 	for _, header := range p.headers {
 
@@ -61,29 +74,76 @@ func (p *parser) writeRow(row map[string]any, isFirstRow bool) {
 	}
 
 	p.out.Write(csvRow)
-
-	//clear map and put it back in pool
-	for k := range row {
-		delete(row, k)
-	}
-	p.objPool.Put(row)
-
-	//empty slice and put it back
-	csvRow = csvRow[:0]
-	p.strPool.Put(csvRow)
+	p.pool.PutStringSlice(csvRow)
 }
 
-func (p *parser) parseArrayElements() {
-	for p.decoder.More() {
-		object := p.objPool.Get().(map[string]any)
-		if err := p.decoder.Decode(&object); err != nil {
-			p.logger.Fatal().Msgf("error while praseArray decoding object : %v", err)
+func (p *parser) parseDistinctElements() {
+
+	for p.inp.Scan() {
+
+		txt := p.inp.Text()
+
+		object := p.pool.GetMapStringAny()
+
+		if err := json.Unmarshal([]byte(txt), &object); err != nil {
+			p.logger.Debug().Err(err).Msgf("error while decode, invalid JSON")
+			continue
 		}
 
 		p.writeRow(object, false)
+		p.pool.PutMapStringAny(object)
 	}
 
 	p.out.Flush()
+}
+
+func (p *parser) parseArrayElements() {
+
+	for p.decoder.More() {
+
+		object := p.pool.GetMapStringAny()
+
+		if err := p.decoder.Decode(&object); err != nil {
+			p.logger.Fatal().Msgf("error while parseArrayElements decoding object : %v", err)
+		}
+
+		p.writeRow(object, false)
+		p.pool.PutMapStringAny(object)
+	}
+
+	p.out.Flush()
+}
+
+func (p *parser) getHeaderAndFirstRowFromObject() ([]string, map[string]any) {
+
+	object := map[string]any{}
+
+	//find first successful json object
+	for p.inp.Scan() {
+
+		txt := p.inp.Text()
+
+		object = map[string]any{}
+		if err := json.Unmarshal([]byte(txt), &object); err != nil {
+			p.logger.Debug().Err(err).Msgf("error while decoding json")
+			continue
+		}
+
+		break //we found the first valid json
+	}
+
+	if len(object) <= 0 {
+		p.logger.Fatal().Msg("could not find first valid json object")
+	}
+
+	headers := []string{}
+	for key := range object {
+		headers = append(headers, key)
+	}
+
+	sort.Strings(headers)
+
+	return headers, object
 }
 
 func (p *parser) getHeaderAndFirstRowFromArray() ([]string, map[string]any) {
@@ -108,42 +168,45 @@ func (p *parser) getHeaderAndFirstRowFromArray() ([]string, map[string]any) {
 	return nil, nil
 }
 
-func (p *parser) setHeadersAndWriteFirstRow(uts string) {
-
-	token := p.getJSONInputFormat()
+func (p *parser) setHeadersAndWriteFirstRow(uts string, isArray bool) {
 
 	headerMap := map[string]any{}
+	var headers []string
+	var row map[string]any
 
-	switch token {
-	case json.Delim('['):
-		headers, row := p.getHeaderAndFirstRowFromArray()
-		p.headers = headers
-		for _, header := range headers {
-			headerMap[header] = header
-		}
-		p.setPools()
-		p.setUTS(uts, headerMap)
-		p.writeRow(headerMap, true)
-		p.writeRow(row, false)
-	default:
-		p.logger.Fatal().Msgf("Invalid JSON, Only supports array of objects %s", `[{"key1":"value1","key2":"value2"}]`)
+	if isArray {
+		headers, row = p.getHeaderAndFirstRowFromArray()
+	} else {
+		headers, row = p.getHeaderAndFirstRowFromObject()
 	}
+
+	p.headers = headers
+	for _, header := range headers {
+		headerMap[header] = header
+	}
+
+	p.pool.SetPools(len(headers)) //set pool as we now know the header size
+	p.setUTS(uts, headerMap)
+	p.writeRow(headerMap, true)
+	p.writeRow(row, false)
 }
 
 func (p *parser) endToken() {
-	endToken, err := p.decoder.Token()
+	token, err := p.decoder.Token()
 	if err != nil {
 		p.logger.Fatal().Msgf("error while decoding json : %v", err)
 	}
-	p.logger.Debug().Msgf("End Token : %v", endToken)
+	p.logger.Debug().Msgf("End Token : %v", token)
 }
 
-func (p *parser) getJSONInputFormat() json.Token {
+func (p *parser) startToken() json.Token {
 
 	token, err := p.decoder.Token()
 	if err != nil {
 		p.logger.Fatal().Msgf("error while reading token : %v", err)
 	}
+
+	p.logger.Debug().Msgf("Start Token : %v", token)
 
 	return token
 }

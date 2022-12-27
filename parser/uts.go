@@ -38,7 +38,7 @@ func (p *parser) parseRowValue(header string, value any) string {
 			t := time.Unix(int64(v), 0)
 			return t.String()
 		}
-		return fmt.Sprintf("%d", int64(v)) //converting to int64 to avoid exponential value
+		return strconv.FormatInt(int64(v), 10)
 	case string:
 		if isUTSColumn {
 			val, err := strconv.ParseInt(v, 10, 64)
@@ -46,9 +46,19 @@ func (p *parser) parseRowValue(header string, value any) string {
 				p.logger.Debug().Str("str", v).Msg("could not convert the string to int64")
 				return v
 			}
-			t := time.Unix(val, 0)
-			return t.String()
+			text, err := time.Unix(val, 0).Local().MarshalText()
+			if err == nil {
+				return string(text)
+			}
+			return v
 		}
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case nil:
+		return ""
 	default:
 		return fmt.Sprintf("%v", v)
 	}

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -35,7 +34,7 @@ func GetOutWriter(inFile, outFile string, logger *zerolog.Logger) (*csv.Writer, 
 		fileName := filepath.Base(inFile)
 		ext := filepath.Ext(fileName)
 		ts := time.Now().Unix()
-		fname := strings.TrimRight(fileName, ext)
+		fname := fileName[0 : len(fileName)-len(ext)]
 		outFile = fmt.Sprintf("j2csv-%s-%d.%s", fname, ts, "csv")
 	}
 

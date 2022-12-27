@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -19,6 +21,7 @@ type flags struct {
 	uts     string //unix to string
 	verbose bool   //enables debug logs
 	help    bool   //prints command help
+	isArray bool   //if input is array of objects
 }
 
 func main() {
@@ -30,10 +33,16 @@ func main() {
 
 	input := parser.GetInputReader(fg.inFile, logWriter)
 	output, outFilePath := parser.GetOutWriter(fg.inFile, fg.outFile, logWriter)
-
+	scanner := bufio.NewScanner(input)
+	decoder := json.NewDecoder(input)
 	logWriter = logger.SetFatalHook(logWriter, outFilePath)
 
-	parser.NewParser(input, output, logWriter).Process(fg.uts)
+	p := parser.NewParser(scanner, output, decoder, logWriter).EnablePool()
+	if fg.isArray {
+		p.ProcessArray(fg.uts)
+	} else {
+		p.ProcessObjects(fg.uts)
+	}
 
 	logWriter.Info().Msgf("Done!!, Time took : %v", time.Since(startTime))
 
@@ -52,6 +61,7 @@ func parseFlags() flags {
 	flag.StringVar(&fg.uts, "uts", "", "used to convert timestamp to string, usage --uts createdAt,updatedAt")
 	flag.BoolVar(&fg.verbose, "v", false, "Enables verbose logging")
 	flag.BoolVar(&fg.help, "h", false, "Prints command help")
+	flag.BoolVar(&fg.isArray, "a", false, "use this option if its an array of objects")
 	flag.Parse()
 
 	if fg.help {
