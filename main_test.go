@@ -30,7 +30,7 @@ func TestGenerate(t *testing.T) {
 }
 
 func GenerateFile(isArray bool) {
-	rowCount := 5000000
+	rowCount := 5000
 	var fpath string
 
 	if isArray {

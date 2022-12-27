@@ -86,7 +86,7 @@ func (p *parser) parseDistinctElements() {
 		object := p.pool.GetMapStringAny()
 
 		if err := json.Unmarshal([]byte(txt), &object); err != nil {
-			p.logger.Debug().Err(err).Msgf("error while decode, invalid JSON")
+			p.logger.Warn().Err(err).Msgf("error while decode, invalid JSON")
 			continue
 		}
 
@@ -125,7 +125,7 @@ func (p *parser) getHeaderAndFirstRowFromObject() ([]string, map[string]any) {
 
 		object = map[string]any{}
 		if err := json.Unmarshal([]byte(txt), &object); err != nil {
-			p.logger.Debug().Err(err).Msgf("error while decoding json")
+			p.logger.Warn().Err(err).Msgf("error while decoding json")
 			continue
 		}
 
