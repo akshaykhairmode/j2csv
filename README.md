@@ -3,7 +3,7 @@
 
 ## Convert JSON to CSV file
 
-Simple tool to convert json files to csv. **Only works with array of objects.**
+Simple tool to convert json files to csv. Removes single line and multi line comments in case of object stream. Sample files [Here](https://github.com/akshaykhairmode/j2csv/tree/main/test-files)
 
 Download Binary from [GitHub](https://github.com/akshaykhairmode/j2csv/tree/main/dist) or build from source.
 
@@ -11,9 +11,13 @@ Download Binary from [GitHub](https://github.com/akshaykhairmode/j2csv/tree/main
 
 This will install go binary in your **$GOBIN** (If its set) or at **~/go/bin/j2csv**
 
-Example Usage,
+### *Example Usage,*
 
 > **$GOBIN/j2csv -f myfile.json** OR **j2csv.exe --f myfile.json**
+
+### *Example Usage for an array of objects,*
+
+> **$GOBIN/j2csv -a -f myfile.json** OR **j2csv.exe --a --f myfile.json**
 
 **Options,**
  

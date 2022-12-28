@@ -73,9 +73,9 @@ func (f flags) printAll(logger *zerolog.Logger) {
 
 func parseFlags() flags {
 	fg := flags{}
-	flag.BoolVar(&fg.stats, "stats", false, "-stats")
-	flag.StringVar(&fg.inFile, "f", "", "--f /home/input.txt (Required)")
-	flag.StringVar(&fg.outFile, "o", "", "--f /home/output.txt")
+	flag.BoolVar(&fg.stats, "stats", false, "prints the allocations at start and at end")
+	flag.StringVar(&fg.inFile, "f", "", "usage --f /home/input.txt (Required)")
+	flag.StringVar(&fg.outFile, "o", "", "usage --o /home/output.txt")
 	flag.StringVar(&fg.uts, "uts", "", "used to convert timestamp to string, usage --uts createdAt,updatedAt")
 	flag.BoolVar(&fg.verbose, "v", false, "Enables verbose logging")
 	flag.BoolVar(&fg.help, "h", false, "Prints command help")
