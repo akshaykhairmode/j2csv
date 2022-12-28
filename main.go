@@ -2,13 +2,16 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"time"
 
+	"github.com/akshaykhairmode/j2csv/converter"
 	"github.com/akshaykhairmode/j2csv/logger"
 	"github.com/akshaykhairmode/j2csv/parser"
 
@@ -21,6 +24,7 @@ type flags struct {
 	uts     string //unix to string
 	verbose bool   //enables debug logs
 	help    bool   //prints command help
+	stats   bool   //prints memory allocs/gc etc
 	isArray bool   //if input is array of objects
 }
 
@@ -33,19 +37,32 @@ func main() {
 
 	input := parser.GetInputReader(fg.inFile, logWriter)
 	output, outFilePath := parser.GetOutWriter(fg.inFile, fg.outFile, logWriter)
-	scanner := bufio.NewScanner(input)
-	decoder := json.NewDecoder(input)
+
 	logWriter = logger.SetFatalHook(logWriter, outFilePath)
 
-	p := parser.NewParser(scanner, output, decoder, logWriter).EnablePool()
+	PrintMemUsage(fg.stats)
 	if fg.isArray {
-		p.ProcessArray(fg.uts)
+		processArray(output, input, logWriter, fg.uts)
 	} else {
-		p.ProcessObjects(fg.uts)
+		processObjects(output, input, logWriter, fg.uts)
 	}
+	PrintMemUsage(fg.stats)
 
 	logWriter.Info().Msgf("Done!!, Time took : %v", time.Since(startTime))
 
+}
+
+func processArray(output *csv.Writer, input io.Reader, logWriter *zerolog.Logger, uts string) {
+	decoder := json.NewDecoder(input)
+	p := parser.NewParser(output, decoder, logWriter).EnablePool()
+	p.ProcessArray(uts)
+}
+
+func processObjects(output *csv.Writer, input *bufio.Reader, logWriter *zerolog.Logger, uts string) {
+	newInput := converter.New(input, 0, logWriter)
+	decoder := json.NewDecoder(newInput)
+	p := parser.NewParser(output, decoder, logWriter).EnablePool()
+	p.ProcessObjects(uts)
 }
 
 func (f flags) printAll(logger *zerolog.Logger) {
@@ -56,6 +73,7 @@ func (f flags) printAll(logger *zerolog.Logger) {
 
 func parseFlags() flags {
 	fg := flags{}
+	flag.BoolVar(&fg.stats, "stats", false, "-stats")
 	flag.StringVar(&fg.inFile, "f", "", "--f /home/input.txt (Required)")
 	flag.StringVar(&fg.outFile, "o", "", "--f /home/output.txt")
 	flag.StringVar(&fg.uts, "uts", "", "used to convert timestamp to string, usage --uts createdAt,updatedAt")
@@ -73,7 +91,12 @@ func parseFlags() flags {
 }
 
 // https://gist.github.com/j33ty/79e8b736141be19687f565ea4c6f4226
-func PrintMemUsage() {
+func PrintMemUsage(print bool) {
+
+	if !print {
+		return
+	}
+
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats

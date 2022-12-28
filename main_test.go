@@ -4,13 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"testing"
 
-	"github.com/akshaykhairmode/j2csv/parser"
 	"github.com/rs/zerolog"
 )
 
@@ -18,11 +16,6 @@ const (
 	arrayFilePath  = "test-files/array.json"
 	objectFilePath = "test-files/object.txt"
 )
-
-func init() {
-	// GenerateFile(true)
-	// GenerateFile(false)
-}
 
 func TestGenerate(t *testing.T) {
 	GenerateFile(true)
@@ -50,7 +43,23 @@ func GenerateFile(isArray bool) {
 	}
 
 	for i := 0; i < rowCount; i++ {
-		jsonObj := fmt.Sprintf(`{"fname":"John","Age":%d,"Location":"Australia","lname":"doe","createdAt":%d,"updatedAt":%d}`, i, i, i)
+		var jsonObj string
+		if isArray {
+			jsonObj = fmt.Sprintf(`{"fname":"John","Age":%d,"Location":"Australia","lname":"doe","createdAt":%d,"updatedAt":%d}`, i, i, i)
+		} else {
+			jsonObj = fmt.Sprintf(`
+			//This is single line comment
+			{
+				"fname": "John",
+				"Age": %d,
+				"Location": "Australia",
+				"lname": "doe",
+				"createdAt": %d,
+				"updatedAt": %d
+			  } /* this is multi
+			   line comment */ `, i, i, i)
+		}
+
 		f.WriteString(jsonObj)
 		if i < rowCount-1 {
 			if isArray {
@@ -79,34 +88,7 @@ func BenchmarkParseArray(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		inp := bytes.NewBuffer(dt)
 		out := bytes.NewBuffer(nil)
-		scanner := bufio.NewScanner(inp)
-		decoder := json.NewDecoder(inp)
-		p := parser.NewParser(scanner, csv.NewWriter(out), decoder, &zerolog.Logger{})
-		p.ProcessArray("")
-		inp.Reset()
-		out.Reset()
-	}
-}
-
-func BenchmarkParseArrayWithPool(b *testing.B) {
-
-	inp, err := os.Open(arrayFilePath)
-	if err != nil {
-		panic(err)
-	}
-	dt, err := io.ReadAll(inp)
-	if err != nil {
-		panic(err)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		inp := bytes.NewBuffer(dt)
-		out := bytes.NewBuffer(nil)
-		scanner := bufio.NewScanner(inp)
-		decoder := json.NewDecoder(inp)
-		p := parser.NewParser(scanner, csv.NewWriter(out), decoder, &zerolog.Logger{}).EnablePool()
-		p.ProcessArray("")
+		processArray(csv.NewWriter(out), inp, &zerolog.Logger{}, "")
 		inp.Reset()
 		out.Reset()
 	}
@@ -125,37 +107,9 @@ func BenchmarkParseObjects(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		inp := bytes.NewBuffer(dt)
+		inp := bufio.NewReader(bytes.NewBuffer(dt))
 		out := bytes.NewBuffer(nil)
-		scanner := bufio.NewScanner(inp)
-		decoder := json.NewDecoder(inp)
-		p := parser.NewParser(scanner, csv.NewWriter(out), decoder, &zerolog.Logger{})
-		p.ProcessObjects("")
-		inp.Reset()
-		out.Reset()
-	}
-}
-
-func BenchmarkParseObjectsWithPool(b *testing.B) {
-
-	inp, err := os.Open(objectFilePath)
-	if err != nil {
-		panic(err)
-	}
-	dt, err := io.ReadAll(inp)
-	if err != nil {
-		panic(err)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		inp := bytes.NewBuffer(dt)
-		out := bytes.NewBuffer(nil)
-		scanner := bufio.NewScanner(inp)
-		decoder := json.NewDecoder(inp)
-		p := parser.NewParser(scanner, csv.NewWriter(out), decoder, &zerolog.Logger{}).EnablePool()
-		p.ProcessObjects("")
-		inp.Reset()
+		processObjects(csv.NewWriter(out), inp, &zerolog.Logger{}, "")
 		out.Reset()
 	}
 }
