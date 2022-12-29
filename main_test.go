@@ -45,7 +45,7 @@ func GenerateFile(isArray bool) {
 	for i := 0; i < rowCount; i++ {
 		var jsonObj string
 		if isArray {
-			jsonObj = fmt.Sprintf(`{"fname":"John","Age":%d,"Location":"Australia","lname":"doe","createdAt":%d,"updatedAt":%d}`, 1672325049, 1672325049, 1672325049)
+			jsonObj = fmt.Sprintf(`{"fname":"John","Age":%d,"Location":"Australia","lname":"doe","createdAt":%d,"updatedAt":%d}`, i, 1672325049, 1672325049)
 		} else {
 			jsonObj = fmt.Sprintf(`
 			//This is single line comment
@@ -57,7 +57,7 @@ func GenerateFile(isArray bool) {
 				"createdAt": %d,
 				"updatedAt": %d
 			  } /* this is multi
-			   line comment */ `, i, i, i)
+			   line comment */ `, i, 1672325049, 1672325049)
 		}
 
 		f.WriteString(jsonObj)

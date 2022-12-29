@@ -56,22 +56,22 @@ func (p *parser) ProcessObjects(uts string) {
 
 func (p *parser) writeRow(row map[string]any, isFirstRow bool) {
 
-	csvRow := p.pool.GetStringSlice()
+	csvRow := p.pool.GetStringSlice() //get string slice from pool.
 
-	for _, header := range p.headers {
+	for _, header := range p.headers { //We will loop on every header and get the value for that header. Since we are looping on headers we will skip extra elements which could be there in later objects
 
 		value := row[header]
 
-		if isFirstRow {
+		if isFirstRow { //If its the first row no parsing is required as we are writing the headers.
 			csvRow = append(csvRow, fmt.Sprintf("%v", value))
 			continue
 		}
 
-		csvRow = append(csvRow, p.parseRowValue(header, value))
+		csvRow = append(csvRow, p.parseRowValue(header, value)) //get the proper value after conversion.
 	}
 
-	p.out.Write(csvRow)
-	p.pool.PutStringSlice(csvRow)
+	p.out.Write(csvRow)           //Write to our csv writer.
+	p.pool.PutStringSlice(csvRow) //put the slice back in pool.
 }
 
 func (p *parser) parseArrayElements() {
