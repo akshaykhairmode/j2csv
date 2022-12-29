@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"io"
 	"regexp"
-	"sync"
 
 	"github.com/rs/zerolog"
 )
@@ -14,7 +13,6 @@ type chanWriter struct {
 	c      chan []byte
 	excess *[]byte
 	logger *zerolog.Logger
-	pool   *sync.Pool
 }
 
 // New take an reader and returns another reader. Send 0 to create default size buffer. The new reader will receive data after removal of single line and multiline comments.
@@ -23,12 +21,6 @@ func New(inp *bufio.Reader, sizeInBytes int, logger *zerolog.Logger) io.Reader {
 		c:      make(chan []byte, 50),
 		excess: &[]byte{},
 		logger: logger,
-		pool: &sync.Pool{
-			New: func() any {
-				b := make([]byte, sizeInBytes)
-				return &b
-			},
-		},
 	}
 
 	go cw.startParsingInput(inp, sizeInBytes)
@@ -37,7 +29,6 @@ func New(inp *bufio.Reader, sizeInBytes int, logger *zerolog.Logger) io.Reader {
 }
 
 func (cw *chanWriter) Read(buf []byte) (int, error) {
-
 	var retn int
 	//first copy excess bytes from previous operation
 	n := copy(buf, *cw.excess)
@@ -49,7 +40,7 @@ func (cw *chanWriter) Read(buf []byte) (int, error) {
 	retn += n //incr
 
 	//space remaining in buf, so lets get some data from our channel
-	data, isChanOpen := <-cw.c
+	data, isChanOpen := <-cw.c //Blocks till channel is open
 	if !isChanOpen && len(data) <= 0 {
 		return retn, io.EOF
 	}
