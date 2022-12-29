@@ -11,7 +11,7 @@ import (
 
 type chanWriter struct {
 	c      chan []byte
-	excess *[]byte
+	excess *bytes.Buffer
 	logger *zerolog.Logger
 }
 
@@ -19,7 +19,7 @@ type chanWriter struct {
 func New(inp *bufio.Reader, sizeInBytes int, logger *zerolog.Logger) io.Reader {
 	cw := &chanWriter{
 		c:      make(chan []byte, 50),
-		excess: &[]byte{},
+		excess: bytes.NewBuffer(nil),
 		logger: logger,
 	}
 
@@ -30,10 +30,14 @@ func New(inp *bufio.Reader, sizeInBytes int, logger *zerolog.Logger) io.Reader {
 
 func (cw *chanWriter) Read(buf []byte) (int, error) {
 	var retn int
+
 	//first copy excess bytes from previous operation
-	n := copy(buf, *cw.excess)
-	cw.updateExcess(n)
-	if n >= len(buf) {
+	n, err := cw.excess.Read(buf)
+	if err != nil && err != io.EOF { //Ignore EOF here as we could write data later to it also
+		cw.logger.Fatal().Err(err).Msg("error while writing to buffer")
+	}
+
+	if n >= len(buf) { //We filled the inp buffer, so we return as we dont have any capacity available.
 		return n, nil
 	}
 
@@ -47,21 +51,11 @@ func (cw *chanWriter) Read(buf []byte) (int, error) {
 
 	//for the remaining space
 	n = copy(buf[n:], data)
-	excessData := data[n:]
-	cw.excess = &excessData
+	cw.excess.Write(data[n:])
+
 	retn += n //incr
 
 	return retn, nil
-}
-
-func (cw *chanWriter) updateExcess(n int) {
-	if n < len(*cw.excess) { //If written data is less than total data then we still have excess remaining so reslice the access.
-		newp := (*cw.excess)[n:]
-		cw.excess = &newp
-		return
-	}
-	newp := (*cw.excess)[:0]
-	cw.excess = &newp //if there is no data remaining to write then we clear the slice
 }
 
 func (cw *chanWriter) startParsingInput(inp *bufio.Reader, sizeInBytes int) {
