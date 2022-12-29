@@ -59,7 +59,7 @@ func processArray(output *csv.Writer, input io.Reader, logWriter *zerolog.Logger
 }
 
 func processObjects(output *csv.Writer, input *bufio.Reader, logWriter *zerolog.Logger, uts string) {
-	newInput := converter.New(input, 0, logWriter)
+	newInput := converter.New(input, 0, logWriter) //converter is the package name we are using.
 	decoder := json.NewDecoder(newInput)
 	p := parser.NewParser(output, decoder, logWriter).EnablePool()
 	p.ProcessObjects(uts)
