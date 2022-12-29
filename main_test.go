@@ -32,6 +32,7 @@ func GenerateFile(isArray bool) {
 		fpath = objectFilePath
 	}
 
+	os.Remove(fpath)
 	f, err := os.OpenFile(fpath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		panic(err)

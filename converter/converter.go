@@ -62,7 +62,6 @@ func (cw *chanReader) Read(buf []byte) (int, error) {
 	cw.excess.Write(data[n:])
 
 	retn += n //increase total read bytes count
-
 	return retn, nil
 }
 
