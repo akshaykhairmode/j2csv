@@ -30,10 +30,10 @@ func (p *parser) setUTS(uts string, headerMap map[string]any) {
 
 func (p *parser) parseRowValue(header string, value any) string {
 
-	_, isUTSColumn := p.utsHeaders[header]
+	_, isUTSColumn := p.utsHeaders[header] //check if the column exist in
 
 	switch v := value.(type) {
-	case float64:
+	case float64: //json decodes numbers as float64.
 		if isUTSColumn {
 			t := time.Unix(int64(v), 0)
 			return t.String()
@@ -41,7 +41,7 @@ func (p *parser) parseRowValue(header string, value any) string {
 		return strconv.FormatInt(int64(v), 10)
 	case string:
 		if isUTSColumn {
-			val, err := strconv.ParseInt(v, 10, 64)
+			val, err := strconv.ParseInt(v, 10, 64) //first convert to int
 			if err != nil {
 				p.logger.Debug().Str("str", v).Msg("could not convert the string to int64")
 				return v

@@ -10,12 +10,12 @@ import (
 )
 
 type parser struct {
-	headers    []string
-	out        *csv.Writer
-	decoder    *json.Decoder
-	utsHeaders map[string]struct{}
-	logger     zerolog.Logger
-	pool       *pool
+	headers    []string            //headers will be stored here.
+	out        *csv.Writer         //Our output file will be csv
+	decoder    *json.Decoder       //This is the json decoder we will use.
+	utsHeaders map[string]struct{} //The columns which needs conversion from UNIX to string.
+	logger     zerolog.Logger      //We will use the console logger of zerolog.
+	pool       *pool               //To reduce some load on the GC.
 }
 
 func (p *parser) EnablePool() *parser {
@@ -92,9 +92,9 @@ func (p *parser) parseArrayElements() {
 }
 
 func (p *parser) getHeaderAndFirstRow() ([]string, map[string]any) {
-	if p.decoder.More() {
+	if p.decoder.More() { //Check if we have an object
 		object := map[string]any{}
-		if err := p.decoder.Decode(&object); err != nil {
+		if err := p.decoder.Decode(&object); err != nil { //Decode the object into map.
 			p.logger.Fatal().Msgf("error while decoding array object : %v", err)
 		}
 
@@ -103,12 +103,12 @@ func (p *parser) getHeaderAndFirstRow() ([]string, map[string]any) {
 			headers = append(headers, key)
 		}
 
-		sort.Strings(headers)
+		sort.Strings(headers) //Sort headers or we will get random order every run because maps & json being unordered.
 
 		return headers, object
 	}
 
-	p.logger.Fatal().Msgf("empty object")
+	p.logger.Fatal().Msgf("empty object") //If we dont get first object the the file would not have one and could be an empty array.
 
 	return nil, nil
 }
@@ -121,31 +121,30 @@ func (p *parser) setHeadersAndWriteFirstRow(uts string, isArray bool) {
 
 	p.headers = headers
 	for _, header := range headers {
-		headerMap[header] = header
+		headerMap[header] = header //We are using map because we want to write this as first row itself and our writeRow method only takes map. Also this helps with fast lookups.
 	}
 
 	p.pool.SetPools(len(headers)) //set pool as we now know the header size
-	p.setUTS(uts, headerMap)
-	p.writeRow(headerMap, true)
-	p.writeRow(row, false)
+	p.setUTS(uts, headerMap)      //set uts so that later we can use this to convert the unix timestamp to string.
+	p.writeRow(headerMap, true)   //Write the headers to csv file.
+	p.writeRow(row, false)        //Write our first row after headers.
 }
 
 func (p *parser) endToken() {
-	token, err := p.decoder.Token()
-	if err != nil {
-		p.logger.Fatal().Msgf("error while decoding json : %v", err)
-	}
+	token := p.token()
 	p.logger.Debug().Msgf("End Token : %v", token)
 }
 
-func (p *parser) startToken() json.Token {
+func (p *parser) startToken() {
+	token := p.token()
+	p.logger.Debug().Msgf("Start Token : %v", token)
+}
 
+func (p *parser) token() json.Token {
 	token, err := p.decoder.Token()
 	if err != nil {
 		p.logger.Fatal().Msgf("error while reading token : %v", err)
 	}
-
-	p.logger.Debug().Msgf("Start Token : %v", token)
 
 	return token
 }

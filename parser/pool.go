@@ -3,9 +3,9 @@ package parser
 import "sync"
 
 type pool struct {
-	mapAnyPool, stringSlicePool *sync.Pool
-	length                      int
-	enabled                     bool
+	mapAnyPool, stringSlicePool *sync.Pool //Map pool for decoding the object. string slice pool for csvWriter.
+	length                      int        //Size of the map and slice which we will create
+	enabled                     bool       //should enable pooling or not
 }
 
 func (po *pool) GetMapStringAny() map[string]any {

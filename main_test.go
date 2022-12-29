@@ -45,7 +45,7 @@ func GenerateFile(isArray bool) {
 	for i := 0; i < rowCount; i++ {
 		var jsonObj string
 		if isArray {
-			jsonObj = fmt.Sprintf(`{"fname":"John","Age":%d,"Location":"Australia","lname":"doe","createdAt":%d,"updatedAt":%d}`, i, i, i)
+			jsonObj = fmt.Sprintf(`{"fname":"John","Age":%d,"Location":"Australia","lname":"doe","createdAt":%d,"updatedAt":%d}`, 1672325049, 1672325049, 1672325049)
 		} else {
 			jsonObj = fmt.Sprintf(`
 			//This is single line comment

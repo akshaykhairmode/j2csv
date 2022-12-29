@@ -32,13 +32,13 @@ func main() {
 
 	startTime := time.Now()
 	fg := parseFlags()
-	logWriter := logger.GetLogger(fg.verbose)
+	logWriter := logger.GetLogger(fg.verbose) //get a console logger
 	fg.printAll(logWriter)
 
-	input := parser.GetInputReader(fg.inFile, logWriter)
+	input := parser.GetInputReader(fg.inFile, logWriter) //get a buffered reader from the input file.
 	output, outFilePath := parser.GetOutWriter(fg.inFile, fg.outFile, logWriter)
 
-	logWriter = logger.SetFatalHook(logWriter, outFilePath)
+	logWriter = logger.SetFatalHook(logWriter, outFilePath) //If fatal log level is called, delete the output file.
 
 	PrintMemUsage(fg.stats)
 	if fg.isArray {
