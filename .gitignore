@@ -4,6 +4,7 @@
 *.dylib
 .vscode
 *.csv
+.*.zip
 
 # Test binary, built with `go test -c`
 *.test

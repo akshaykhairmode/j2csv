@@ -1,7 +1,6 @@
 package converter
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 	"regexp"
@@ -16,7 +15,7 @@ type chanReader struct {
 }
 
 // New take an reader and returns another reader. Send 0 to create default size buffer. The new reader will receive data after removal of single line and multiline comments.
-func New(inp *bufio.Reader, sizeInBytes int, logger *zerolog.Logger) io.Reader {
+func New(inp io.Reader, sizeInBytes int, logger *zerolog.Logger) io.Reader {
 	cw := &chanReader{
 		c:      make(chan []byte, 50),
 		excess: bytes.NewBuffer(nil),
@@ -65,7 +64,7 @@ func (cw *chanReader) Read(buf []byte) (int, error) {
 	return retn, nil
 }
 
-func (cw *chanReader) startParsingInput(inp *bufio.Reader, sizeInBytes int) {
+func (cw *chanReader) startParsingInput(inp io.Reader, sizeInBytes int) {
 	if sizeInBytes <= 0 {
 		sizeInBytes = 1 << 12 //default bytes = 4kb
 	}
@@ -79,7 +78,7 @@ func (cw *chanReader) startParsingInput(inp *bufio.Reader, sizeInBytes int) {
 		}
 
 		//runRegex will remove the single line and multi line comments and return the new bytes.
-		finalBytes := cw.runRegex(buf.Bytes())
+		finalBytes := runRegex(buf.Bytes())
 		//once we get the filtered data, we push the data to the channel.
 		cw.c <- finalBytes
 		//We reset the buffer now so we can reuse the allocations on next read.
@@ -87,14 +86,14 @@ func (cw *chanReader) startParsingInput(inp *bufio.Reader, sizeInBytes int) {
 	}
 
 	//repeat steps here for remaining bytes.
-	finalBytes := cw.runRegex(buf.Bytes())
+	finalBytes := runRegex(buf.Bytes())
 	cw.c <- finalBytes
 	buf.Reset()
 	//Close the channel here so that the read method can return EOF.
 	close(cw.c)
 }
 
-func (cw *chanReader) runRegex(b []byte) []byte {
+func runRegex(b []byte) []byte {
 	singleLineComment := regexp.MustCompile(`//(.*)`)
 	b = singleLineComment.ReplaceAll(b, nil)
 
@@ -104,7 +103,7 @@ func (cw *chanReader) runRegex(b []byte) []byte {
 	return b
 }
 
-func (cw *chanReader) readFromInp(inp *bufio.Reader, buf *bytes.Buffer, sizeInBytes int) error {
+func (cw *chanReader) readFromInp(inp io.Reader, buf *bytes.Buffer, sizeInBytes int) error {
 
 	b := make([]byte, sizeInBytes)
 
@@ -126,14 +125,17 @@ func (cw *chanReader) readFromInp(inp *bufio.Reader, buf *bytes.Buffer, sizeInBy
 	//To avoid this, We will again read till a closing braces which signifies object closing.
 	//NOTE :: This logic will not work in case the comments itself has json strings or there are nested json objects.
 	//Have some idea or better logic? create a pull request or comment.
+	stop := []byte("}")
 	for {
-		singleByte, err := inp.ReadByte()
+		sb := make([]byte, 1)
+		n, err := inp.Read(sb)
 		if err == io.EOF {
 			return err
 		}
-		buf.WriteByte(singleByte)
 
-		if singleByte == '}' {
+		buf.Write(sb[:n])
+
+		if bytes.Equal(sb, stop) {
 			break //break if we find closing bracket
 		}
 	}

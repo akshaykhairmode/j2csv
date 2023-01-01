@@ -95,7 +95,7 @@ func (p *parser) getHeaderAndFirstRow() ([]string, map[string]any) {
 	if p.decoder.More() { //Check if we have an object
 		object := map[string]any{}
 		if err := p.decoder.Decode(&object); err != nil { //Decode the object into map.
-			p.logger.Fatal().Msgf("error while decoding array object : %v", err)
+			p.logger.Fatal().Msgf("error while decoding object : %v", err)
 		}
 
 		headers := []string{}

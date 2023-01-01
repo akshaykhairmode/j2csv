@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
@@ -25,20 +24,32 @@ type flags struct {
 	verbose bool   //enables debug logs
 	help    bool   //prints command help
 	stats   bool   //prints memory allocs/gc etc
+	force   bool   //will load the whole input file in memory
+	stdIn   bool   //get data from stdin
+	zip     bool   //create output in zip file
 	isArray bool   //if input is array of objects
 }
+
+const (
+	colorReset = "\033[0m"
+	colorGreen = "\033[32m"
+)
+
+var fg flags
 
 func main() {
 
 	startTime := time.Now()
-	fg := parseFlags()
+	parseFlags()
 	logWriter := logger.GetLogger(fg.verbose) //get a console logger
 	fg.printAll(logWriter)
 
-	input := parser.GetInputReader(fg.inFile, logWriter) //get a buffered reader from the input file.
-	output, outFilePath := parser.GetOutWriter(fg.inFile, fg.outFile, logWriter)
+	input, closeInput := parser.GetInputReader(fg.inFile, fg.stdIn, logWriter) //get a buffered reader from the input file.
+	defer closeInput()
 
-	logWriter = logger.SetFatalHook(logWriter, outFilePath) //If fatal log level is called, delete the output file.
+	output, outFilePath, closeOutput := parser.GetOutWriter(fg.inFile, fg.outFile, fg.zip, logWriter)
+
+	logWriter = logger.SetFatalHook(logWriter, outFilePath, closeInput, closeOutput) //If fatal log level is called, delete the output file.
 
 	PrintMemUsage(fg.stats)
 	if fg.isArray {
@@ -48,7 +59,33 @@ func main() {
 	}
 	PrintMemUsage(fg.stats)
 
+	closeOutput()
+	processZip(outFilePath, fg.zip, logWriter)
+
 	logWriter.Info().Msgf("Done!!, Time took : %v", time.Since(startTime))
+
+}
+
+func processZip(outFilePath string, isZip bool, logWriter *zerolog.Logger) {
+
+	format := func(s string) string {
+		return fmt.Sprintf("Output File ====> %v%s%v", colorGreen, s, colorReset)
+	}
+
+	if !isZip {
+		logWriter.Info().Msg(format(outFilePath))
+		return
+	}
+
+	zipPath, err := parser.ZipFile(outFilePath, logWriter)
+	if err != nil {
+		logWriter.Error().Msg("could not create zip file")
+		os.Remove(zipPath)
+		return
+	}
+
+	os.Remove(outFilePath)
+	logWriter.Info().Msgf(format(zipPath))
 
 }
 
@@ -58,8 +95,16 @@ func processArray(output *csv.Writer, input io.Reader, logWriter *zerolog.Logger
 	p.ProcessArray(uts)
 }
 
-func processObjects(output *csv.Writer, input *bufio.Reader, logWriter *zerolog.Logger, uts string) {
-	newInput := converter.New(input, 0, logWriter) //converter is the package name we are using.
+func processObjects(output *csv.Writer, input io.Reader, logWriter *zerolog.Logger, uts string) {
+
+	var newInput io.Reader
+
+	if fg.force {
+		newInput = converter.ConvertInMemory(input, logWriter)
+	} else {
+		newInput = converter.New(input, 0, logWriter) //converter is the package name we are using.
+	}
+
 	decoder := json.NewDecoder(newInput)
 	p := parser.NewParser(output, decoder, logWriter).EnablePool()
 	p.ProcessObjects(uts)
@@ -71,8 +116,7 @@ func (f flags) printAll(logger *zerolog.Logger) {
 	})
 }
 
-func parseFlags() flags {
-	fg := flags{}
+func parseFlags() {
 	flag.BoolVar(&fg.stats, "stats", false, "prints the allocations at start and at end")
 	flag.StringVar(&fg.inFile, "f", "", "usage --f /home/input.txt (Required)")
 	flag.StringVar(&fg.outFile, "o", "", "usage --o /home/output.txt")
@@ -80,14 +124,15 @@ func parseFlags() flags {
 	flag.BoolVar(&fg.verbose, "v", false, "Enables verbose logging")
 	flag.BoolVar(&fg.help, "h", false, "Prints command help")
 	flag.BoolVar(&fg.isArray, "a", false, "use this option if its an array of objects")
+	flag.BoolVar(&fg.force, "force", false, "force load input file in memory")
+	flag.BoolVar(&fg.stdIn, "i", false, "get input data from standard input")
+	flag.BoolVar(&fg.zip, "z", false, "output file to be .zip")
 	flag.Parse()
 
 	if fg.help {
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
-
-	return fg
 }
 
 // https://gist.github.com/j33ty/79e8b736141be19687f565ea4c6f4226
