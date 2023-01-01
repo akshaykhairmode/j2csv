@@ -3,7 +3,7 @@ package logger
 import (
 	"os"
 
-	"github.com/akshaykhairmode/j2csv/parser"
+	"github.com/akshaykhairmode/j2csv/file"
 	"github.com/rs/zerolog"
 )
 
@@ -20,7 +20,7 @@ func GetLogger(verbose bool) *zerolog.Logger {
 
 }
 
-func SetFatalHook(logger *zerolog.Logger, outFile string, cleanup ...parser.Close) *zerolog.Logger {
+func SetFatalHook(logger *zerolog.Logger, outFile string, cleanup ...file.Close) *zerolog.Logger {
 
 	logger.Debug().Str("outFile", outFile).Msg("Setting up hook")
 
@@ -35,7 +35,7 @@ func SetFatalHook(logger *zerolog.Logger, outFile string, cleanup ...parser.Clos
 }
 
 type FatalHook struct {
-	cleanup []parser.Close
+	cleanup []file.Close
 	OutFile string
 	Logger  *zerolog.Logger
 }

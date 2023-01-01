@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/akshaykhairmode/j2csv/converter"
+	"github.com/akshaykhairmode/j2csv/file"
 	"github.com/akshaykhairmode/j2csv/logger"
 	"github.com/akshaykhairmode/j2csv/parser"
 
@@ -44,10 +45,10 @@ func main() {
 	logWriter := logger.GetLogger(fg.verbose) //get a console logger
 	fg.printAll(logWriter)
 
-	input, closeInput := parser.GetInputReader(fg.inFile, fg.stdIn, logWriter) //get a buffered reader from the input file.
+	input, closeInput := file.GetInputReader(fg.inFile, fg.stdIn, logWriter) //get a buffered reader from the input file.
 	defer closeInput()
 
-	output, outFilePath, closeOutput := parser.GetOutWriter(fg.inFile, fg.outFile, fg.zip, logWriter)
+	output, outFilePath, closeOutput := file.GetOutWriter(fg.inFile, fg.outFile, fg.zip, logWriter)
 
 	logWriter = logger.SetFatalHook(logWriter, outFilePath, closeInput, closeOutput) //If fatal log level is called, delete the output file.
 
@@ -77,7 +78,7 @@ func processZip(outFilePath string, isZip bool, logWriter *zerolog.Logger) {
 		return
 	}
 
-	zipPath, err := parser.ZipFile(outFilePath, logWriter)
+	zipPath, err := file.ZipFile(outFilePath, logWriter)
 	if err != nil {
 		logWriter.Error().Msg("could not create zip file")
 		os.Remove(zipPath)
