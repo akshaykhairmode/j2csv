@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -95,7 +94,6 @@ func closeFile(fh io.Closer, logger *zerolog.Logger) {
 
 func isZip(name string) bool {
 	ext := filepath.Ext(name)
-	log.Println(ext)
 	return ext == ".zip"
 }
 

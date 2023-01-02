@@ -89,7 +89,7 @@ func BenchmarkParseArray(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		inp := bytes.NewBuffer(dt)
 		out := bytes.NewBuffer(nil)
-		processArray(csv.NewWriter(out), inp, &zerolog.Logger{}, "")
+		processArray(csv.NewWriter(out), inp, &zerolog.Logger{}, flags{})
 		inp.Reset()
 		out.Reset()
 	}
@@ -110,7 +110,7 @@ func BenchmarkParseObjects(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		inp := bufio.NewReader(bytes.NewBuffer(dt))
 		out := bytes.NewBuffer(nil)
-		processObjects(csv.NewWriter(out), inp, &zerolog.Logger{}, "")
+		processObjects(csv.NewWriter(out), inp, &zerolog.Logger{}, flags{})
 		out.Reset()
 	}
 }

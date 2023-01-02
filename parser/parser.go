@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 
 	"github.com/rs/zerolog"
@@ -76,19 +77,21 @@ func (p *parser) writeRow(row map[string]any, isFirstRow bool) {
 
 func (p *parser) parseArrayElements() {
 
+	defer p.out.Flush()
+
 	for p.decoder.More() {
 
 		object := p.pool.GetMapStringAny()
 
 		if err := p.decoder.Decode(&object); err != nil {
-			p.logger.Fatal().Msgf("error while parseArrayElements decoding object : %v", err)
+			data, _ := io.ReadAll(p.decoder.Buffered())
+			p.logger.Fatal().Int64("offset", p.decoder.InputOffset()).Bytes("data", data).Msgf("error while parseArrayElements decoding object : %v", err)
 		}
 
 		p.writeRow(object, false)
 		p.pool.PutMapStringAny(object)
 	}
 
-	p.out.Flush()
 }
 
 func (p *parser) getHeaderAndFirstRow() ([]string, map[string]any) {

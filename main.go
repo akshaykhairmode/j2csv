@@ -54,9 +54,9 @@ func main() {
 
 	PrintMemUsage(fg.stats)
 	if fg.isArray {
-		processArray(output, input, logWriter, fg.uts)
+		processArray(output, input, logWriter, fg)
 	} else {
-		processObjects(output, input, logWriter, fg.uts)
+		processObjects(output, input, logWriter, fg)
 	}
 	PrintMemUsage(fg.stats)
 
@@ -90,13 +90,13 @@ func processZip(outFilePath string, isZip bool, logWriter *zerolog.Logger) {
 
 }
 
-func processArray(output *csv.Writer, input io.Reader, logWriter *zerolog.Logger, uts string) {
+func processArray(output *csv.Writer, input io.Reader, logWriter *zerolog.Logger, fg flags) {
 	decoder := json.NewDecoder(input)
 	p := parser.NewParser(output, decoder, logWriter).EnablePool()
-	p.ProcessArray(uts)
+	p.ProcessArray(fg.uts)
 }
 
-func processObjects(output *csv.Writer, input io.Reader, logWriter *zerolog.Logger, uts string) {
+func processObjects(output *csv.Writer, input io.Reader, logWriter *zerolog.Logger, fg flags) {
 
 	var newInput io.Reader
 
@@ -108,7 +108,7 @@ func processObjects(output *csv.Writer, input io.Reader, logWriter *zerolog.Logg
 
 	decoder := json.NewDecoder(newInput)
 	p := parser.NewParser(output, decoder, logWriter).EnablePool()
-	p.ProcessObjects(uts)
+	p.ProcessObjects(fg.uts)
 }
 
 func (f flags) printAll(logger *zerolog.Logger) {
