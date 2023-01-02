@@ -49,6 +49,10 @@ func GetInputReader(inFile string, isStdin bool, logger *zerolog.Logger) (io.Rea
 
 func GetOutWriter(inFile, outFile string, isZip bool, logger *zerolog.Logger) (*csv.Writer, string, Close) {
 
+	if inFile == "" { //In case of reading from stdin, we will get empty file name
+		inFile = "stdin"
+	}
+
 	if outFile == "" {
 		fileName := filepath.Base(inFile)
 		ext := filepath.Ext(fileName)

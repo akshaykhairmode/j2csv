@@ -125,7 +125,7 @@ func parseFlags() {
 	flag.BoolVar(&fg.verbose, "v", false, "Enables verbose logging")
 	flag.BoolVar(&fg.help, "h", false, "Prints command help")
 	flag.BoolVar(&fg.isArray, "a", false, "use this option if its an array of objects")
-	flag.BoolVar(&fg.force, "force", false, "force load input file in memory")
+	flag.BoolVar(&fg.force, "force", false, "force load input file in memory, use this if conversion is failing.")
 	flag.BoolVar(&fg.stdIn, "i", false, "get input data from standard input")
 	flag.BoolVar(&fg.zip, "z", false, "output file to be .zip")
 	flag.Parse()
