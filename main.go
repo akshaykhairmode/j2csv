@@ -22,6 +22,7 @@ type flags struct {
 	inFile  string //the file to read for the json input
 	outFile string //the output file path
 	uts     string //unix to string
+	empty   string //fill empty columns with passed value
 	verbose bool   //enables debug logs
 	help    bool   //prints command help
 	stats   bool   //prints memory allocs/gc etc
@@ -92,7 +93,7 @@ func processZip(outFilePath string, isZip bool, logWriter *zerolog.Logger) {
 
 func processArray(output *csv.Writer, input io.Reader, logWriter *zerolog.Logger, fg flags) {
 	decoder := json.NewDecoder(input)
-	p := parser.NewParser(output, decoder, logWriter).EnablePool()
+	p := parser.NewParser(output, decoder, logWriter).EnablePool().SetDefault(fg.empty)
 	p.ProcessArray(fg.uts)
 }
 
@@ -107,7 +108,7 @@ func processObjects(output *csv.Writer, input io.Reader, logWriter *zerolog.Logg
 	}
 
 	decoder := json.NewDecoder(newInput)
-	p := parser.NewParser(output, decoder, logWriter).EnablePool()
+	p := parser.NewParser(output, decoder, logWriter).EnablePool().SetDefault(fg.empty)
 	p.ProcessObjects(fg.uts)
 }
 
@@ -128,6 +129,7 @@ func parseFlags() {
 	flag.BoolVar(&fg.force, "force", false, "force load input file in memory, use this if conversion is failing.")
 	flag.BoolVar(&fg.stdIn, "i", false, "get input data from standard input")
 	flag.BoolVar(&fg.zip, "z", false, "output file to be .zip")
+	flag.StringVar(&fg.empty, "e", "", "usage --e NA, will put NA in columns where value does not exist")
 	flag.Parse()
 
 	if fg.help {

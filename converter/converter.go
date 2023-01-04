@@ -14,6 +14,13 @@ type chanReader struct {
 	logger *zerolog.Logger //console logger
 }
 
+var (
+	singleLineComment = regexp.MustCompile(`//(.*)`)
+	multiLineComment  = regexp.MustCompile(`/\*[\s\S]*?\*/`)
+)
+
+var stopByte = []byte("}")
+
 // New take an reader and returns another reader. Send 0 to create default size buffer. The new reader will receive data after removal of single line and multiline comments.
 func New(inp io.Reader, sizeInBytes int, logger *zerolog.Logger) io.Reader {
 	cw := &chanReader{
@@ -94,12 +101,8 @@ func (cw *chanReader) startParsingInput(inp io.Reader, sizeInBytes int) {
 }
 
 func runRegex(b []byte) []byte {
-	singleLineComment := regexp.MustCompile(`//(.*)`)
 	b = singleLineComment.ReplaceAll(b, nil)
-
-	multiLineComment := regexp.MustCompile(`/\*[\s\S]*?\*/`)
 	b = multiLineComment.ReplaceAll(b, nil)
-
 	return b
 }
 
@@ -125,7 +128,6 @@ func (cw *chanReader) readFromInp(inp io.Reader, buf *bytes.Buffer, sizeInBytes 
 	//To avoid this, We will again read till a closing braces which signifies object closing.
 	//NOTE :: This logic will not work in case the comments itself has json strings or there are nested json objects.
 	//Have some idea or better logic? create a pull request or comment.
-	stop := []byte("}")
 	for {
 		sb := make([]byte, 1)
 		n, err := inp.Read(sb)
@@ -135,7 +137,7 @@ func (cw *chanReader) readFromInp(inp io.Reader, buf *bytes.Buffer, sizeInBytes 
 
 		buf.Write(sb[:n])
 
-		if bytes.Equal(sb, stop) {
+		if bytes.Equal(sb, stopByte) {
 			break //break if we find closing bracket
 		}
 	}

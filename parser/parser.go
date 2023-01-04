@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/rs/zerolog"
 )
 
 type parser struct {
-	headers    []string            //headers will be stored here.
+	headers    []string //headers will be stored here.
+	defaults   string
 	out        *csv.Writer         //Our output file will be csv
 	decoder    *json.Decoder       //This is the json decoder we will use.
 	utsHeaders map[string]struct{} //The columns which needs conversion from UNIX to string.
@@ -24,6 +26,11 @@ func (p *parser) EnablePool() *parser {
 	return p
 }
 
+func (p *parser) SetDefault(d string) *parser {
+	p.defaults = strings.TrimSpace(d)
+	return p
+}
+
 func NewParser(out *csv.Writer, decoder *json.Decoder, logger *zerolog.Logger) *parser {
 
 	return &parser{
@@ -32,6 +39,7 @@ func NewParser(out *csv.Writer, decoder *json.Decoder, logger *zerolog.Logger) *
 		utsHeaders: map[string]struct{}{},
 		logger:     *logger,
 		pool:       &pool{},
+		defaults:   "",
 	}
 }
 
@@ -62,6 +70,11 @@ func (p *parser) writeRow(row map[string]any, isFirstRow bool) {
 	for _, header := range p.headers { //We will loop on every header and get the value for that header. Since we are looping on headers we will skip extra elements which could be there in later objects
 
 		value := row[header]
+
+		if value == nil {
+			csvRow = append(csvRow, p.defaults)
+			continue
+		}
 
 		if isFirstRow { //If its the first row no parsing is required as we are writing the headers.
 			csvRow = append(csvRow, fmt.Sprintf("%v", value))

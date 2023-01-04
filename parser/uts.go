@@ -31,7 +31,6 @@ func (p *parser) setUTS(uts string, headerMap map[string]any) {
 func (p *parser) parseRowValue(header string, value any) string {
 
 	_, isUTSColumn := p.utsHeaders[header] //check if the column exist in
-
 	switch v := value.(type) {
 	case float64: //json decodes numbers as float64.
 		if isUTSColumn {
