@@ -1,5 +1,6 @@
 
 
+
 # j2csv
 
 ## Convert JSON to CSV file
@@ -15,6 +16,10 @@ This will install go binary in your **$GOBIN** (If its set) or at **~/go/bin/j2c
 **Options available**
 
       -a    use this option if its an array of objects
+      -d string
+            delimeter to use. usage --d ";", to use semicolon as delimeter
+      -e string
+            usage --e NA, will put NA in columns where value does not exist
       -f string
             usage --f /home/input.txt (Required)
       -force
@@ -29,8 +34,6 @@ This will install go binary in your **$GOBIN** (If its set) or at **~/go/bin/j2c
             used to convert timestamp to string, usage --uts createdAt,updatedAt
       -v    Enables verbose logging
       -z    output file to be .zip
-
-
 
 ### *Examples,*
 
