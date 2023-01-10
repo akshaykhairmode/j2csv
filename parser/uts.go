@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -37,7 +38,7 @@ func (p *parser) parseRowValue(header string, value any) string {
 			t := time.Unix(int64(v), 0)
 			return t.String()
 		}
-		return strconv.FormatInt(int64(v), 10)
+		return strconv.FormatFloat(v, 'f', -1, 64)
 	case string:
 		if isUTSColumn {
 			val, err := strconv.ParseInt(v, 10, 64) //first convert to int
@@ -51,6 +52,13 @@ func (p *parser) parseRowValue(header string, value any) string {
 			}
 			return v
 		}
+	case map[string]any: //If its nested JSON, marshal it and return the string
+		nested, err := json.Marshal(v)
+		if err != nil {
+			p.logger.Debug().Err(err).Msg("error while marshaling nested JSON")
+			return fmt.Sprintf("%v", v)
+		}
+		return string(nested)
 	case bool:
 		if v {
 			return "true"

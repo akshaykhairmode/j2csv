@@ -23,6 +23,7 @@ type flags struct {
 	outFile string //the output file path
 	uts     string //unix to string
 	empty   string //fill empty columns with passed value
+	deli    string //delimeter to use
 	verbose bool   //enables debug logs
 	help    bool   //prints command help
 	stats   bool   //prints memory allocs/gc etc
@@ -50,6 +51,13 @@ func main() {
 	defer closeInput()
 
 	output, outFilePath, closeOutput := file.GetOutWriter(fg.inFile, fg.outFile, fg.zip, logWriter)
+
+	if fg.deli != "" {
+		if len(fg.deli) > 1 {
+			logWriter.Fatal().Msg("Delimeter should be a single character")
+		}
+		output.Comma = rune(fg.deli[0])
+	}
 
 	logWriter = logger.SetFatalHook(logWriter, outFilePath, closeInput, closeOutput) //If fatal log level is called, delete the output file.
 
@@ -123,13 +131,16 @@ func parseFlags() {
 	flag.StringVar(&fg.inFile, "f", "", "usage --f /home/input.txt (Required)")
 	flag.StringVar(&fg.outFile, "o", "", "usage --o /home/output.txt")
 	flag.StringVar(&fg.uts, "uts", "", "used to convert timestamp to string, usage --uts createdAt,updatedAt")
+	flag.StringVar(&fg.empty, "e", "", "usage --e NA, will put NA in columns where value does not exist")
+	flag.StringVar(&fg.deli, "d", "", `delimeter to use. usage --d ";", to use semicolon as delimeter`)
+
 	flag.BoolVar(&fg.verbose, "v", false, "Enables verbose logging")
 	flag.BoolVar(&fg.help, "h", false, "Prints command help")
 	flag.BoolVar(&fg.isArray, "a", false, "use this option if its an array of objects")
 	flag.BoolVar(&fg.force, "force", false, "force load input file in memory, use this if conversion is failing.")
 	flag.BoolVar(&fg.stdIn, "i", false, "get input data from standard input")
 	flag.BoolVar(&fg.zip, "z", false, "output file to be .zip")
-	flag.StringVar(&fg.empty, "e", "", "usage --e NA, will put NA in columns where value does not exist")
+
 	flag.Parse()
 
 	if fg.help {
